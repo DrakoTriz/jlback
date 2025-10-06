@@ -23,7 +23,7 @@ router.post('/', async(req , res)=>{
 //OBTENER CIUDADES
 router.get('/',async(req,res)=>{
     try{
-        const ciudades= prisma.ciudad.findMany();
+        const ciudades=await prisma.ciudad.findMany();
         res.json(ciudades);
     }catch (error) {
     console.error(error);

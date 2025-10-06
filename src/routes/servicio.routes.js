@@ -23,8 +23,8 @@ router.post('/', async(req, res)=>{
 //LISTAR SERVICIOS
 router.get('/', async(req,res)=>{
     try{
-        const servcios=await prisma.servcio.findMany();
-        res.json(servcios);
+        const servicios=await prisma.servicio.findMany();
+        res.json(servicios);
     }catch(error){
         console.error(error);
         res.status(500).json({error: "Error obteniendo servicios"});}

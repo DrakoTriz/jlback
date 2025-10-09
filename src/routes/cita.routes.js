@@ -1,5 +1,6 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const {enviarConfirmacionCita}= require('../service/emailService');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -91,6 +92,14 @@ console.log('precioTotal:', precioTotal);
     });
 
     res.json(nuevaCita);
+
+    //llamada al servicio de CORREO, para poder enviar el correo
+    await enviarConfirmacionCita(nuevaCita,nuevaCita.usuario);
+
+    res.json({
+      mensaje: 'Cita creada correctamente y correo enviado',
+      cita: nuevaCita
+    });
 
   } catch (error) {
     console.error(error);

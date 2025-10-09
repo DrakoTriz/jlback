@@ -4,13 +4,18 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const router = express.Router();
 
-
-//  CREAR NUEVA CITA
+// CREAR NUEVA CITA
 router.post('/', async (req, res) => {
   try {
     const { usuarioId, ciudadId, fecha, hora_inicio, servicios } = req.body;
+console.log('--- DATOS RECIBIDOS PARA NUEVA CITA ---');
+console.log({ usuarioId, ciudadId, fecha, hora_inicio, servicios });
+    // Validaciones básicas
+    if (!usuarioId || !ciudadId || !fecha || !hora_inicio || !servicios || servicios.length === 0) {
+      return res.status(400).json({ error: "Debes enviar usuario, ciudad, fecha, hora y al menos un servicio" });
+    }
 
-    // obtener servicios
+    // Obtener servicios seleccionados
     const serviciosDb = await prisma.servicio.findMany({
       where: { id: { in: servicios } }
     });
@@ -19,46 +24,57 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: "No se encontraron los servicios seleccionados" });
     }
 
-    // calcular duración total y precio
+    // Obtener ciudad
+   if (!ciudadId) {
+  return res.status(400).json({ error: "CiudadId no proporcionado o inválido" });
+}
+
+console.log('Body recibido:', req.body);
+
+const ciudad = await prisma.ciudad.findUnique({ where: { id: Number(ciudadId) } });
+if (!ciudad) {
+  return res.status(400).json({ error: "Ciudad no encontrada" });
+}
+
+    // Calcular duración total y precio
     const duracionTotal = serviciosDb.reduce((acc, s) => acc + s.duracion_minutos, 0);
     const precioServicios = serviciosDb.reduce((acc, s) => acc + s.precio, 0);
-
-    // obtener ciudad
-    const ciudad = await prisma.ciudad.findUnique({ where: { id: ciudadId } });
-    if (!ciudad) return res.status(400).json({ error: "Ciudad no encontrada" });
-
     const precioTotal = precioServicios + ciudad.precio_desplazamiento;
 
-    // calcular hora fin
+    // Calcular hora inicio y fin
     const horaInicioDate = new Date(`${fecha}T${hora_inicio}`);
     const horaFinDate = new Date(horaInicioDate.getTime() + duracionTotal * 60000);
 
-    // comprobar solapamientos
-    const solapada = await prisma.cita.findFirst({
-      where: {
-        fecha: new Date(fecha),
-        OR: [
-          {
-            hora_inicio: { lte: horaFinDate },
-            hora_fin: { gte: horaInicioDate }
-          }
-        ]
-      }
-    });
+    // Comprobar solapamientos
+   const solapada = await prisma.cita.findFirst({
+  where: {
+    fecha: new Date(fecha),
+    hora_inicio: { lte: horaFinDate },
+    hora_fin: { gte: horaInicioDate }
+  }
+});
 
     if (solapada) {
       return res.status(400).json({ error: "El rango horario ya está ocupado" });
     }
-
-    // crear la cita
+console.log('--- CREAR CITA ---');
+console.log('usuarioId:', usuarioId);
+console.log('ciudadId:', ciudadId);
+console.log('fecha:', fecha);
+console.log('hora_inicio:', hora_inicio);
+console.log('horaInicioDate:', horaInicioDate);
+console.log('horaFinDate:', horaFinDate);
+console.log('serviciosDb:', serviciosDb);
+console.log('precioTotal:', precioTotal);
+    // Crear cita
     const nuevaCita = await prisma.cita.create({
       data: {
-        usuarioId,
-        ciudadId,
         fecha: new Date(fecha),
         hora_inicio: horaInicioDate,
         hora_fin: horaFinDate,
         total: precioTotal,
+        usuario: { connect: { id: usuarioId } },
+        ciudad: { connect: { id: ciudadId } },
         servicios: {
           create: serviciosDb.map(s => ({
             servicioId: s.id,
@@ -82,8 +98,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-
-//  LISTAR TODAS LAS CITAS
+// LISTAR TODAS LAS CITAS
 router.get('/', async (req, res) => {
   try {
     const citas = await prisma.cita.findMany({
@@ -101,25 +116,19 @@ router.get('/', async (req, res) => {
   }
 });
 
-
-//  DISPONIBILIDAD DE UN DÍA
+// DISPONIBILIDAD DE UN DÍA
 router.get('/disponibilidad', async (req, res) => {
   try {
-    const { fecha } = req.query; //  AHORA CON req.query
-
-    if (!fecha) {
-      return res.status(400).json({ error: "Debe proporcionar una fecha en formato YYYY-MM-DD" });
-    }
+    const { fecha } = req.query;
+    if (!fecha) return res.status(400).json({ error: "Debe proporcionar una fecha en formato YYYY-MM-DD" });
 
     const fechaDate = new Date(fecha);
 
-    // obtener citas de ese día
     const citas = await prisma.cita.findMany({
       where: { fecha: fechaDate },
       orderBy: { hora_inicio: 'asc' }
     });
 
-    // transformar a rangos ocupados
     const ocupadas = citas.map(c => ({
       hora_inicio: c.hora_inicio.toISOString().substring(11, 16),
       hora_fin: c.hora_fin.toISOString().substring(11, 16)
@@ -132,6 +141,5 @@ router.get('/disponibilidad', async (req, res) => {
     res.status(500).json({ error: "Error obteniendo disponibilidad" });
   }
 });
-
 
 module.exports = router;

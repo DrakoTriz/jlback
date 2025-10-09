@@ -5,7 +5,11 @@ require('dotenv').config();
 const app=express();
 
 //middlewares 
-app.use(cors()); // permite solicitudes desde otros origenes, back y front en distintos servidores etc
+app.use(cors({
+  origin: 'http://localhost:4200',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+})); // permite solicitudes desde otros origenes, back y front en distintos servidores etc
 app.use(express.json()); //permite que tu servidor interprete JSON en las peticiones req.body
 
 //RUTAS

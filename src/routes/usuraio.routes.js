@@ -7,7 +7,7 @@ const router = express.Router();
 // CREAR USUARIO
 router.post('/', async (req, res) => {
   try {
-    const { nombre, apellidos, direccion, email, telefono, ciudadId } = req.body;
+    const { nombre, apellidos, direccion, email, telefono } = req.body;
 
     const nuevoUsuario = await prisma.usuario.create({
       data: {
@@ -15,11 +15,7 @@ router.post('/', async (req, res) => {
         apellidos,
         direccion,
         email,
-        telefono,
-        ciudadId: ciudadId ? Number(ciudadId) : null
-      },
-      include: {
-        ciudad: true
+        telefono
       }
     });
 
@@ -33,11 +29,7 @@ router.post('/', async (req, res) => {
 // LISTAR USUARIOS
 router.get('/', async (req, res) => {
   try {
-    const usuarios = await prisma.usuario.findMany({
-      include: {
-        ciudad: true
-      }
-    });
+    const usuarios = await prisma.usuario.findMany();
     res.json(usuarios);
   } catch (error) {
     console.error(error);
